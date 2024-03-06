@@ -25,13 +25,17 @@ data_dir='Data/testing' # set path to the targeted dataset
 solution_dir='Solution_1102' # set path to metadata-preprocessing output
 data_dir_groundtruth='Data/testing_groundtruth' # set path to the groundtruth of the targeted dataset
 
-target_dir_img = 'LOAM\data\cma\imgs'
-target_dir_mask = 'LOAM\data\cma\masks'
+#target_dir_img = 'LOAM\data\cma\imgs'
+#target_dir_mask = 'LOAM\data\cma\masks'
 
-target_dir_img_small = 'LOAM\data\cma_small\imgs'
-target_dir_mask_small = 'LOAM\data\cma_small\masks'
+#target_dir_img_small = 'LOAM\data\cma_small\imgs'
+#target_dir_mask_small = 'LOAM\data\cma_small\masks'
 
+target_dir_img = 'LOAM/data/cma/imgs'
+target_dir_mask = 'LOAM/data/cma/masks'
 
+target_dir_img_small = 'LOAM/data/cma_small/imgs'
+target_dir_mask_small = 'LOAM/data/cma_small/masks'
 
 
 def multiprocessing_setting():
@@ -82,7 +86,7 @@ def file_summary():
         if '.json' in file_name:
             filename=file_name.replace('.json', '.tif')
             map_name = file_name.replace('.json', '')
-            #print('Working on map:', file_name)
+            print('Working on map:', file_name)
             file_path=os.path.join(data_dir, filename)
             test_json=file_path.replace('.tif', '.json')
             
@@ -109,7 +113,7 @@ def file_summary():
 
                 total_poly_counter = total_poly_counter + poly_counter
                 print(poly_counter, '\t', filename)
-    print(total_poly_counter)
+    print("Total poly cnt:", total_poly_counter)
 
 
 

@@ -86,21 +86,21 @@ def postprocessing_for_bitmap_worker_multiple_image(map_id, legend_id, this_map_
                 c_0 = c*crop_size
                 c_1 = min(c*crop_size+crop_size, img.shape[1])
 
-                print(r, c, r_0, r_1, c_0, c_1)
+                #print(r, c, r_0, r_1, c_0, c_1)
                 if True:
                     if r_1-r_0 < crop_size or c_1-c_0 < crop_size:
                         if r_1-r_0 < crop_size:
                             img_concat_temp = np.concatenate([img[r_0:r_1, c_0:c_1], empty_grid[0:crop_size-(r_1-r_0), 0:(c_1-c_0)]], axis=0)
-                            print(img[r_0:r_1, c_0:c_1].shape, empty_grid[0:crop_size-(r_1-r_0), 0:(c_1-c_0)].shape, img_concat_temp.shape)
+                            #print(img[r_0:r_1, c_0:c_1].shape, empty_grid[0:crop_size-(r_1-r_0), 0:(c_1-c_0)].shape, img_concat_temp.shape)
                         else:
                             img_concat_temp = np.copy(img[r_0:r_1, c_0:c_1]).astype(float)
-                            print(img[r_0:r_1, c_0:c_1].shape, img_concat_temp.shape)
+                            #print(img[r_0:r_1, c_0:c_1].shape, img_concat_temp.shape)
                         if c_1-c_0 < crop_size:
                             img_concat = np.concatenate([img_concat_temp[:, 0:(c_1-c_0)], empty_grid[:, 0:crop_size-(c_1-c_0)]], axis=1)
-                            print(img_concat_temp[:, :(c_1-c_0)].shape, empty_grid[:, 0:crop_size-(c_1-c_0)].shape, img_concat.shape)
+                            #print(img_concat_temp[:, :(c_1-c_0)].shape, empty_grid[:, 0:crop_size-(c_1-c_0)].shape, img_concat.shape)
                         else:
                             img_concat = np.copy(img_concat_temp).astype(float)
-                            print(img_concat_temp.shape, img_concat.shape)
+                            #print(img_concat_temp.shape, img_concat.shape)
                     else:
                         img_concat = np.copy(img[r_0:r_1, c_0:c_1]).astype(float)
                 

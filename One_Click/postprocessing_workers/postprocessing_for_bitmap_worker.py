@@ -36,7 +36,8 @@ def postprocessing_for_bitmap_worker_multiple_image(map_id, legend_id, this_map_
 
     #source_path_ext = os.path.join(data_dir2, this_map_name+'_expected_crop_region.png')
     shutil.copyfile(source_path_0, target_path_0)
-    shutil.copyfile(source_path_1, target_path_1)
+    if os.path.exists(source_path_1):
+        shutil.copyfile(source_path_1, target_path_1)
     #shutil.copyfile(source_path_8, target_path_8)
 
 
@@ -52,6 +53,7 @@ def postprocessing_for_bitmap_worker_multiple_image(map_id, legend_id, this_map_
 
 
     for this_img in range(0, len(figure_info)):
+        if this_img == 1 and not os.path.exists(figure_info[this_img][0]): continue
         img = cv2.imread(figure_info[this_img][0])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         empty_grid = np.zeros((crop_size, crop_size), dtype='uint8').astype(float)

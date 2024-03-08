@@ -149,9 +149,9 @@ def worker_postprocessing(crop_size):
             file_extraction = os.path.join(data_dir0, target_legend_v1)
             file_groundtruth = os.path.join(data_dir1, target_legend)
             
-            if os.path.isfile(file_groundtruth) == False:
-                print('not provided... ', file_groundtruth)
-                continue
+            #if os.path.isfile(file_groundtruth) == False:
+            #    print('not provided... ', file_groundtruth)
+            #    continue
             
             if os.path.isfile(file_extraction) == False:
                 print('not extracted... ', file_extraction)

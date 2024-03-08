@@ -76,7 +76,7 @@ def main():
             input_separate_validating_set = False,
             input_reading_predefined_testing = True,
             input_training_needed = False,
-            input_targeted_map_file = 'targeted_map.csv',
+            input_targeted_map_file = targeted_map_list,
             input_map_source_dir = data_dir,
             input_groundtruth_dir = data_groundtruth_dir
         )

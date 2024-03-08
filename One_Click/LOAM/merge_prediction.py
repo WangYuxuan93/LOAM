@@ -33,7 +33,10 @@ if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
 files = os.listdir(args.pred_dir)
+name = os.path.basename(args.source).split(".")[0]
+print (name)
 for file in files:
+    if not name in file: continue
     file_path = os.path.join(args.pred_dir, file)
     prefix = file.split("_poly_")[0]
     output_path = os.path.join(args.output_dir, prefix+".png")

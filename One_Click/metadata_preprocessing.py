@@ -20,7 +20,7 @@ from skimage.morphology import skeletonize
 
 import multiprocessing
 #print(multiprocessing.cpu_count())
-PROCESSES = 8
+PROCESSES = 128
 
 
 split_multiprocessing = True # Always set to True !!

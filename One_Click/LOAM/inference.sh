@@ -4,6 +4,6 @@
 #map_list=../train_map.csv
 data_dir=../dataset/valid
 gt_dir=../dataset/valid
-sa_dir=valid1102
+sa_dir=24_Black_Crystal_2014_11
 map_list=../valid_map.csv
 python loam_handler.py --data_dir ${data_dir} --data_groundtruth_dir ${gt_dir} --targeted_map_list ${map_list} --model_inference TRUE

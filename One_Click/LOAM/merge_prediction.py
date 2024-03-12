@@ -1,10 +1,16 @@
 import argparse
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw
 import os
+import json
 
-def merge_images(image1_path, image2_path, output_path, alpha=0.6):
-    print (image1_path, image2_path, output_path)
+def merge_images(image1_path, image2_path, output_path, item_area, alpha=0.6):
+    lower_left_x, lower_left_y = item_area[0]
+    upper_right_x, upper_right_y = item_area[1]
+    w = upper_right_x - lower_left_x
+    h = lower_left_y - upper_right_y
+    box_coords = (lower_left_x, upper_right_y, upper_right_x, lower_left_y)
+    print (image1_path, image2_path, output_path, box_coords)
     # Open the first image
     img1 = Image.open(image1_path).convert("RGBA")
 
@@ -17,6 +23,11 @@ def merge_images(image1_path, image2_path, output_path, alpha=0.6):
 
     # Merge the two images
     combined = Image.alpha_composite(img1, img2)
+
+    combined = combined.convert("RGB")
+    #rect = plt.Rectangle((lower_left_x, lower_left_y), w, h, linestyle="-", edgecolor="red", linewidth=1)
+    draw = ImageDraw.Draw(combined)
+    draw.rectangle(box_coords, outline="red", width=5)
 
     # Save the merged image
     combined.save(output_path)
@@ -35,10 +46,22 @@ if not os.path.exists(args.output_dir):
 files = os.listdir(args.pred_dir)
 name = os.path.basename(args.source).split(".")[0]
 print (name)
+with open(args.source.replace(".tif", ".json"), "r") as f:
+    info = json.load(f)
+#print (info["shapes"])
+output_dir = os.path.join(args.output_dir, name)
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+area = {}
+for shape in info["shapes"]:
+    area[shape["label"]] = shape["points"]
 for file in files:
     if not name in file: continue
     file_path = os.path.join(args.pred_dir, file)
     prefix = file.split("_poly_")[0]
-    output_path = os.path.join(args.output_dir, prefix+".png")
+    output_path = os.path.join(output_dir, prefix+".png")
+    item_name = file[len(name)+1:-len("_predict.png")]
+    print ("item:", item_name)
+    item_area = area[item_name]
     # Call the function with the provided arguments
-    merge_images(args.source, file_path, output_path)
+    merge_images(args.source, file_path, output_path, item_area)

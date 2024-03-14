@@ -22,7 +22,7 @@ from tqdm import tqdm
 import wandb
 from loam.evaluate import evaluate
 from loam.loam_model import LOAM
-from loam.utils.data_loading import BasicDataset, CarvanaDataset
+from loam.utils.data_loading import BasicDataset, CarvanaDataset, TestDataset
 from loam.utils.dice_score import dice_loss
 
 import matplotlib
@@ -847,9 +847,6 @@ def model_testing():
             targeted_epoch = epoch_id_mod
         print('Selecting epoch '+str(targeted_epoch)+' for testing...')
 
-
-
-
     runningtime_start_global = datetime.now()
 
     for k in range(0, k_fold_testing):
@@ -870,6 +867,7 @@ def model_testing():
             "input": dir_img_testing, # Filenames of input images
             "output": dir_pred_testing, # Filenames of output images
             "output_merged": dir_pred_testing1, # Filenames of output images (merged)
+            "batch_size": test_batch_size, 
             "viz": False,
             "no-save": False,
             "mask-threshold": 0.1, # Minimum probability value to consider a mask pixel white
@@ -903,7 +901,6 @@ def model_testing():
         
         testing_key_count = len(testing_key)
         print(str(testing_key_count)+'images to be predicted... ')
-
 
         ''' Perform predicting '''
         candidate_to_merge = []
@@ -1115,6 +1112,185 @@ def model_testing():
 
 
 
+def batched_model_testing():
+    targeted_epoch_found = False
+    targeted_epoch = -1
+    dir_checkpoint = Path('checkpoints/fold_0/')
+
+    if os.path.isdir('checkpoints/fold_0/') == False:
+        dir_checkpoint = Path('checkpoints/')
+
+    for epoch_id in range(20, 0, -1):
+        if os.path.isfile(os.path.join(dir_checkpoint, 'checkpoint_epoch'+str(epoch_id)+'.pth')):
+            targeted_epoch_found = True
+            targeted_epoch = epoch_id
+            break
+
+    if targeted_epoch_found == False:
+        print('No epoch for a successfully trained model is found...')
+    else:
+        epoch_id_mod = epoch_id
+        if os.path.isfile(os.path.join(dir_checkpoint, 'checkpoint_epoch'+str(epoch_id_mod)+'.pth')):
+            targeted_epoch = epoch_id_mod
+        print('Selecting epoch '+str(targeted_epoch)+' for testing...')
+
+    runningtime_start_global = datetime.now()
+
+    for k in range(0, k_fold_testing):
+
+        ''' Setup predicting arguments '''
+        dir_pred_testing = Path('predict/fold_'+str(k)+'/cma_small/predict/')
+        dir_pred_testing1 = Path('predict/fold_'+str(k)+'/cma/predict/')
+        #dir_pred_testing = Path('predict/fold_0/cma_small/predict/')
+        #dir_pred_testing1 = Path('predict/fold_0/cma/predict/')
+
+        if not os.path.exists(dir_pred_testing):
+            os.makedirs(dir_pred_testing)
+        if not os.path.exists(dir_pred_testing1):
+            os.makedirs(dir_pred_testing1)
+
+        args = {
+            "model": os.path.join(dir_checkpoint, 'checkpoint_epoch'+str(targeted_epoch)+'.pth'),
+            "input": dir_img_testing, # Filenames of input images
+            "output": dir_pred_testing, # Filenames of output images
+            "output_merged": dir_pred_testing1, # Filenames of output images (merged)
+            "batch_size": test_batch_size, 
+            "viz": False,
+            "no-save": False,
+            "mask-threshold": 0.1, # Minimum probability value to consider a mask pixel white
+            "scale": 1.0, # Scale factor for the input images
+            "amp": True, # mixed precision
+            "bilinear": False, # bilinear upsampling
+            "classes": 2 # number of classes
+        }
+
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+        net = LOAM(n_channels=7, n_classes=args['classes'], bilinear=args['bilinear'])
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logging.info(f'Loading model {args["model"]}')
+        logging.info(f'Using device {device}')
+
+        net.to(device=device)
+        state_dict = torch.load(args['model'], map_location=device)
+        mask_values = state_dict.pop('mask_values', [0, 1])
+        net.load_state_dict(state_dict)
+
+        logging.info('Model loaded!')
+
+
+        ''' Check predicting information '''
+        #testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and (('_'.join(os.path.splitext(file)[0].split('_')[:-4])) in testing_map[k])]
+        testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and any(testing_map_name in file for testing_map_name in testing_map[k])]
+        
+        testing_key_count = len(testing_key)
+        print(str(testing_key_count)+'images to be predicted... ')
+
+
+        test_set = TestDataset(dir_img, dir_mask, testing_map[k], auxiliary_dict_indexed, args['scale'])
+
+        # 3. Create data loaders
+        loader_args = dict(batch_size=test_batch_size, num_workers=os.cpu_count(), pin_memory=True)
+        test_loader = DataLoader(test_set, shuffle=False, drop_last=False, **loader_args)
+
+
+        ''' Perform predicting '''
+        candidate_to_merge = []
+
+        predict_counter = 0
+        runningtime_start = datetime.now()
+
+        num_test_batches = len(test_loader)
+
+        for batch in tqdm(test_loader, total=num_test_batches, desc='Predicting', unit='batch', leave=False):
+            image, auxiliary_info_1, auxiliary_info_2, image_names = batch['image'], batch['auxiliary_1'], batch['auxiliary_2'], batch['img_name']
+            
+            # move images and labels to correct device and type
+            image = image.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
+            auxiliary_info_1 = auxiliary_info_1.to(device=device, dtype=torch.float32)
+            auxiliary_info_2 = auxiliary_info_2.to(device=device, dtype=torch.float32)
+
+            # predict the mask
+            #mask_pred = net(image, auxiliary_info_1, auxiliary_info_2)
+            with torch.no_grad():
+                output = net(img, auxiliary_info_1, auxiliary_info_2).cpu()
+                output = F.interpolate(output, (image.shape[2], image.shape[1]), mode='bilinear')
+                if net.n_classes > 1:
+                    mask = output.argmax(dim=1)
+                else:
+                    mask = torch.sigmoid(output) > args['mask-threshold']
+
+            pred_masks = mask.long().squeeze().numpy()
+            for idx, img_name in enumerate(image_names):
+                testing_input = img_name + ".png"
+                pred_mask = pred_masks[idx]
+                output_filename = os.path.join(args['output'], img_name+'_predict.png')
+                result = mask_to_image(pred_mask, mask_values)
+                result.save(output_filename)
+
+                if 'poly_0_0.png' in img_name:
+                    this_map_name_index = -4
+                    this_map_name = ''
+                    this_legend_name = ''
+                    for index_attemp in range(-4, -testing_input.count('_')-1, -1):
+                        this_map_name_candidate = '_'.join(os.path.splitext(testing_input)[0].split('_')[:index_attemp])
+                        if this_map_name_candidate in testing_map[k]:
+                            this_map_name = this_map_name_candidate
+                            this_legend_name = '_'.join(os.path.splitext(testing_input)[0].split('_')[index_attemp:-2])
+                            break
+
+                    map_name = this_map_name
+                    label_name = this_legend_name
+                    candidate_to_merge.append([map_name, label_name])
+
+
+        ''' Merge back to complete image '''
+        print(str(len(candidate_to_merge))+' images to be merged... ')
+
+        with tqdm(total=len(candidate_to_merge), desc=f'Merge - Fold {(k+1)}/{k_fold_testing}', unit='img') as pbar0:
+            for map_name, label_name in candidate_to_merge:
+                source_name = map_name + '_' + label_name + '.png'
+                source_filename = os.path.join(dir_source, source_name)
+
+                img = cv2.imread(source_filename)
+                # original_shape = img.shape
+                # print(source_filename, original_shape[0:2])
+                empty_grid = np.zeros((img.shape[0], img.shape[1]), dtype='uint8').astype(float)
+                empty_flag = True
+
+                for r in range(0,math.ceil(img.shape[0]/crop_size)):
+                    for c in range(0,math.ceil(img.shape[1]/crop_size)):
+                        this_block_source = os.path.join(args['output'], str(source_name.split('.')[0]+"_"+str(r)+"_"+str(c)+"_predict.png"))
+                        #print(this_block_source)
+                        already_predicted = os.path.isfile(this_block_source)
+
+                        if already_predicted == True:
+                            block_img = cv2.imread(this_block_source)
+                            block_img = cv2.cvtColor(block_img, cv2.COLOR_BGR2GRAY)
+
+                            r_0 = r*crop_size
+                            r_1 = min(r*crop_size+crop_size, img.shape[0])
+                            c_0 = c*crop_size
+                            c_1 = min(c*crop_size+crop_size, img.shape[1])
+                            
+                            empty_grid[r_0:r_1, c_0:c_1] = block_img[r_0%crop_size:(r_1-r_0), c_0%crop_size:(c_1-c_0)]
+                        else:
+                            empty_flag = False
+                            break
+                    if empty_flag == False:
+                        break
+                
+                if empty_flag == True:
+                    cv2.imwrite(os.path.join(args['output_merged'], str(source_name.split('.')[0]+"_predict.png")), empty_grid)
+                    #logging.info(f'Merging predicted image {source_name} ...')
+                    pbar0.update(1)
+                else:
+                    continue
+
+        print('time_checkpoint (model inferring, fold- '+str(k)+'): ', datetime.now()-runningtime_start_global)
+
+
 
 def run():
     multiprocessing_setting()
@@ -1135,7 +1311,8 @@ def run_testing():
     identify_dataset_v2()
     print_model_summary()
 
-    model_testing()
+    #model_testing()
+    batched_model_testing()
 
 
 
@@ -1154,7 +1331,8 @@ def loam_inference(
         input_training_needed = False,
         input_targeted_map_file = 'targeted_map.csv',
         input_map_source_dir = 'H:/Research/LOAM/Data/testing',
-        input_groundtruth_dir = 'H:/Research/LOAM/Data/testing_groundtruth'
+        input_groundtruth_dir = 'H:/Research/LOAM/Data/testing_groundtruth',
+        input_test_batch_size = 16,
 ):
     global filtering_new_dataset
     global filtering_threshold
@@ -1166,6 +1344,7 @@ def loam_inference(
     global targeted_map_file
     global map_source_dir
     global groundtruth_dir
+    global test_batch_size
 
     filtering_new_dataset = input_filtering_new_dataset
     filtering_threshold = input_filtering_threshold
@@ -1177,6 +1356,7 @@ def loam_inference(
     targeted_map_file = input_targeted_map_file
     map_source_dir = input_map_source_dir
     groundtruth_dir = input_groundtruth_dir
+    test_batch_size = input_test_batch_size
 
     run_testing()
 

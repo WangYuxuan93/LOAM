@@ -35,6 +35,7 @@ def main():
     printing_auxiliary_information = str_to_bool(args.printing_auxiliary_information)
     preprocessing_recoloring = str_to_bool(args.preprocessing_recoloring)
     model_inference = str_to_bool(args.model_inference)
+    test_batch_size = args.test_batch_size
 
     if model_inference == False:
         metadata_preprocessing.metadata_preprocessing(
@@ -78,7 +79,8 @@ def main():
             input_training_needed = False,
             input_targeted_map_file = targeted_map_list,
             input_map_source_dir = data_dir,
-            input_groundtruth_dir = data_groundtruth_dir
+            input_groundtruth_dir = data_groundtruth_dir,
+            input_test_batch_size = test_batch_size,
         )
 
 
@@ -96,6 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('--printing_auxiliary_information', type=str, default='True')
     parser.add_argument('--preprocessing_recoloring', type=str, default='True')
     parser.add_argument('--model_inference', type=str, default='False')
+    parser.add_argument('--test_batch_size', type=int, default=16)
 
     args = parser.parse_args()
     

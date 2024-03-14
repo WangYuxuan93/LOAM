@@ -897,6 +897,8 @@ def model_testing():
 
         ''' Check predicting information '''
         #testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and (('_'.join(os.path.splitext(file)[0].split('_')[:-4])) in testing_map[k])]
+        print (args['input'])
+        print (testing_map[k])
         testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and any(testing_map_name in file for testing_map_name in testing_map[k])]
         
         testing_key_count = len(testing_key)

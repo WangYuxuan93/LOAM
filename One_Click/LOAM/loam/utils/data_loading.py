@@ -148,3 +148,86 @@ class BasicDataset(Dataset):
 class CarvanaDataset(BasicDataset):
     def __init__(self, images_dir, mask_dir, training_map, auxiliary_dict, scale=1):
         super().__init__(images_dir, mask_dir, training_map,auxiliary_dict, scale, mask_suffix='_mask')
+
+
+
+
+class TestDataset(Dataset):
+    def __init__(self, images_dir: str, testing_map: np, auxiliary_dict: dict, scale: float = 1.0):
+        self.images_dir = Path(images_dir)
+        assert 0 < scale <= 1, 'Scale must be between 0 and 1'
+        self.scale = scale
+        self.auxiliary_dict = auxiliary_dict.copy()
+
+        self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.') and (('_'.join(splitext(file)[0].split('_')[:-4])) in testing_map)]
+        if not self.ids:
+            raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
+
+        logging.info(f'Creating dataset with {len(self.ids)} examples')
+
+    def __len__(self):
+        return len(self.ids)
+
+    @staticmethod
+    def preprocess(pil_img, scale):
+        w, h = pil_img.size
+        newW, newH = int(scale * w), int(scale * h)
+        assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
+        pil_img = pil_img.resize((newW, newH), resample=Image.BICUBIC)
+        img = np.asarray(pil_img)
+
+        if img.ndim == 2:
+            img = img[np.newaxis, ...]
+        else:
+            img = img.transpose((2, 0, 1))
+
+        if (img > 1).any():
+            img = img / 255.0
+
+        return img
+
+    def __getitem__(self, idx):
+        name = self.ids[idx]
+        img_file = list(self.images_dir.glob(name + '.*'))
+
+        assert len(img_file) == 1, f'Either no image or multiple images found for the ID {name}: {img_file}'
+        img = load_image(img_file[0])
+        
+        img_sup_0 = load_image(join(self.images_dir, 'sup', name+'_sup_0.png'))
+        img_sup_1 = load_image(join(self.images_dir, 'sup', name+'_sup_1.png'))
+        img_sup_2 = load_image(join(self.images_dir, 'sup', name+'_sup_2.png'))
+        img_sup_3 = load_image(join(self.images_dir, 'sup', name+'_sup_3.png'))
+        img_sup_4 = load_image(join(self.images_dir, 'sup', name+'_sup_4.png'))
+        img_sup_5 = load_image(join(self.images_dir, 'sup', name+'_sup_5.png'))
+
+        img = self.preprocess(img, self.scale, is_mask=False)
+        mask = self.preprocess(mask, self.scale, is_mask=True)
+
+        img_sup_0 = self.preprocess(img_sup_0, self.scale, is_mask=False)
+        img_sup_1 = self.preprocess(img_sup_1, self.scale, is_mask=False)
+        img_sup_2 = self.preprocess(img_sup_2, self.scale, is_mask=False)
+        img_sup_3 = self.preprocess(img_sup_3, self.scale, is_mask=False)
+        img_sup_4 = self.preprocess(img_sup_4, self.scale, is_mask=False)
+        img_sup_5 = self.preprocess(img_sup_5, self.scale, is_mask=False)
+
+        img_combined = np.zeros((7, img.shape[1], img.shape[2]), dtype='uint8').astype(float)
+        img_combined[0] = img
+        img_combined[1] = img_sup_0
+        img_combined[2] = img_sup_1
+        img_combined[3] = img_sup_2
+        img_combined[4] = img_sup_3
+        img_combined[5] = img_sup_4
+        img_combined[6] = img_sup_5
+
+        #try:
+            #fetching_auxi = self.auxiliary_dict[str('_'.join(name.split('_')[:-2]))][0]
+        #except:
+            #print(name, str('_'.join(name.split('_')[:-2])))
+
+        return {
+            #'image': torch.as_tensor(img.copy()).float().contiguous(),
+            'image': torch.as_tensor(img_combined.copy()).float().contiguous(),
+            'auxiliary_1': self.auxiliary_dict[str('_'.join(name.split('_')[:-2]))][0],
+            'auxiliary_2': self.auxiliary_dict[str('_'.join(name.split('_')[:-2]))][1],
+            'img_name': name,
+        }

@@ -108,7 +108,7 @@ dir_mask = Path('data/cma_small/masks(2)/')
 
 dir_img_testing = Path('data/cma_small/imgs/')
 dir_mask_testing = Path('data/cma_small/masks/')
-
+dir_img_testing = Path('data_demo/')
 
 
 
@@ -672,6 +672,7 @@ def predict_img(net,
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
     #img = img.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
+    #print ("img shape:", img.shape)
 
     auxiliary_info_1 = targeted_auxiliary_info[0]
     auxiliary_info_1 = auxiliary_info_1.unsqueeze(0)
@@ -683,8 +684,11 @@ def predict_img(net,
 
     with torch.no_grad():
         output = net(img, auxiliary_info_1, auxiliary_info_2).cpu()
+        #print ("output1:", output.shape)
+        #print ("full_img:", full_img.shape)
         #output = F.interpolate(output, (full_img.size[1], full_img.size[0]), mode='bilinear')
         output = F.interpolate(output, (full_img.shape[2], full_img.shape[1]), mode='bilinear')
+        #print ("output2:", output.shape)
         if net.n_classes > 1:
             mask = output.argmax(dim=1)
         else:
@@ -724,6 +728,8 @@ def print_model_summary():
     from loam.loam_model import LOAM
 
     temp_model = LOAM(n_channels=7, n_classes=2, bilinear=False)
+    batch_size = 3
+    #summary(temp_model, input_size=[(batch_size,7,crop_size,crop_size), (batch_size,32), (batch_size,9)])
     summary(temp_model, input_size=[(1,7,crop_size,crop_size), (1,32), (1,9)])
 
     # print(LOAM(n_channels=4, n_classes=2, bilinear=False))
@@ -1149,6 +1155,8 @@ def batched_model_testing():
         if not os.path.exists(dir_pred_testing1):
             os.makedirs(dir_pred_testing1)
 
+        
+
         args = {
             "model": os.path.join(dir_checkpoint, 'checkpoint_epoch'+str(targeted_epoch)+'.pth'),
             "input": dir_img_testing, # Filenames of input images
@@ -1166,6 +1174,13 @@ def batched_model_testing():
 
         logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+        test_set = TestDataset(dir_img_testing, testing_map[k], auxiliary_dict_indexed, args['scale'])
+
+        # Create data loaders
+        #loader_args = dict(batch_size=test_batch_size, num_workers=os.cpu_count(), pin_memory=True)
+        loader_args = dict(batch_size=test_batch_size, num_workers=4, pin_memory=False)
+        test_loader = DataLoader(test_set, shuffle=False, drop_last=False, **loader_args)
+
         net = LOAM(n_channels=7, n_classes=args['classes'], bilinear=args['bilinear'])
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -1182,17 +1197,10 @@ def batched_model_testing():
 
         ''' Check predicting information '''
         #testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and (('_'.join(os.path.splitext(file)[0].split('_')[:-4])) in testing_map[k])]
-        testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and any(testing_map_name in file for testing_map_name in testing_map[k])]
+        #testing_key = [os.path.splitext(file)[0] for file in os.listdir(args['input']) if os.path.isfile(os.path.join(args['input'], file)) and not file.startswith('.') and any(testing_map_name in file for testing_map_name in testing_map[k])]
         
-        testing_key_count = len(testing_key)
-        print(str(testing_key_count)+'images to be predicted... ')
-
-
-        test_set = TestDataset(dir_img, dir_mask, testing_map[k], auxiliary_dict_indexed, args['scale'])
-
-        # 3. Create data loaders
-        loader_args = dict(batch_size=test_batch_size, num_workers=os.cpu_count(), pin_memory=True)
-        test_loader = DataLoader(test_set, shuffle=False, drop_last=False, **loader_args)
+        #testing_key_count = len(testing_key)
+        #print(str(testing_key_count)+'images to be predicted... ')
 
 
         ''' Perform predicting '''
@@ -1202,34 +1210,42 @@ def batched_model_testing():
         runningtime_start = datetime.now()
 
         num_test_batches = len(test_loader)
+        
 
         for batch in tqdm(test_loader, total=num_test_batches, desc='Predicting', unit='batch', leave=False):
             image, auxiliary_info_1, auxiliary_info_2, image_names = batch['image'], batch['auxiliary_1'], batch['auxiliary_2'], batch['img_name']
+            print (image_names)
             
             # move images and labels to correct device and type
             image = image.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
             auxiliary_info_1 = auxiliary_info_1.to(device=device, dtype=torch.float32)
             auxiliary_info_2 = auxiliary_info_2.to(device=device, dtype=torch.float32)
+            #print (image.shape)
 
             # predict the mask
             #mask_pred = net(image, auxiliary_info_1, auxiliary_info_2)
             with torch.no_grad():
-                output = net(img, auxiliary_info_1, auxiliary_info_2).cpu()
-                output = F.interpolate(output, (image.shape[2], image.shape[1]), mode='bilinear')
+                output = net(image, auxiliary_info_1, auxiliary_info_2).cpu()
+                #print ("output1:", output.shape)
+                output = F.interpolate(output, (image.shape[-1], image.shape[-2]), mode='bilinear')
+                #print ("output2:", output.shape)
                 if net.n_classes > 1:
                     mask = output.argmax(dim=1)
                 else:
                     mask = torch.sigmoid(output) > args['mask-threshold']
+            #print ("mask: ", mask.shape)
 
-            pred_masks = mask.long().squeeze().numpy()
+            pred_masks = mask.long().numpy()
+            #print ("pred_masks:", pred_masks.shape)
             for idx, img_name in enumerate(image_names):
                 testing_input = img_name + ".png"
                 pred_mask = pred_masks[idx]
                 output_filename = os.path.join(args['output'], img_name+'_predict.png')
                 result = mask_to_image(pred_mask, mask_values)
+                print ("saving to {}, shape:{}".format(output_filename, result.size))
                 result.save(output_filename)
 
-                if 'poly_0_0.png' in img_name:
+                if 'poly_0_0.png' in testing_input:
                     this_map_name_index = -4
                     this_map_name = ''
                     this_legend_name = ''
@@ -1244,7 +1260,7 @@ def batched_model_testing():
                     label_name = this_legend_name
                     candidate_to_merge.append([map_name, label_name])
 
-
+        #candidate_to_merge.append(["AR_StJoe", "Mb_poly"])
         ''' Merge back to complete image '''
         print(str(len(candidate_to_merge))+' images to be merged... ')
 
@@ -1254,20 +1270,21 @@ def batched_model_testing():
                 source_filename = os.path.join(dir_source, source_name)
 
                 img = cv2.imread(source_filename)
-                # original_shape = img.shape
-                # print(source_filename, original_shape[0:2])
+                original_shape = img.shape
+                print(source_filename, original_shape[0:2])
                 empty_grid = np.zeros((img.shape[0], img.shape[1]), dtype='uint8').astype(float)
                 empty_flag = True
 
                 for r in range(0,math.ceil(img.shape[0]/crop_size)):
                     for c in range(0,math.ceil(img.shape[1]/crop_size)):
                         this_block_source = os.path.join(args['output'], str(source_name.split('.')[0]+"_"+str(r)+"_"+str(c)+"_predict.png"))
-                        #print(this_block_source)
+                        print(this_block_source)
                         already_predicted = os.path.isfile(this_block_source)
 
                         if already_predicted == True:
                             block_img = cv2.imread(this_block_source)
                             block_img = cv2.cvtColor(block_img, cv2.COLOR_BGR2GRAY)
+                            print (block_img.shape)
 
                             r_0 = r*crop_size
                             r_1 = min(r*crop_size+crop_size, img.shape[0])

@@ -46,6 +46,7 @@ class BasicDataset(Dataset):
         self.auxiliary_dict = auxiliary_dict.copy()
 
         self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.') and (('_'.join(splitext(file)[0].split('_')[:-4])) in training_map)]
+        
         if not self.ids:
             raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
 
@@ -158,10 +159,12 @@ class TestDataset(Dataset):
         assert 0 < scale <= 1, 'Scale must be between 0 and 1'
         self.scale = scale
         self.auxiliary_dict = auxiliary_dict.copy()
+        logging.info(f'Loading examples from {images_dir} ...')
 
         self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.') and (('_'.join(splitext(file)[0].split('_')[:-4])) in testing_map)]
         if not self.ids:
             raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
+        print (self.ids[:10])
 
         logging.info(f'Creating dataset with {len(self.ids)} examples')
 
@@ -191,7 +194,9 @@ class TestDataset(Dataset):
         img_file = list(self.images_dir.glob(name + '.*'))
 
         assert len(img_file) == 1, f'Either no image or multiple images found for the ID {name}: {img_file}'
+        
         img = load_image(img_file[0])
+        print ("reading image: {}, shape: {}".format(img_file[0], img.size))
         
         img_sup_0 = load_image(join(self.images_dir, 'sup', name+'_sup_0.png'))
         img_sup_1 = load_image(join(self.images_dir, 'sup', name+'_sup_1.png'))
@@ -200,15 +205,15 @@ class TestDataset(Dataset):
         img_sup_4 = load_image(join(self.images_dir, 'sup', name+'_sup_4.png'))
         img_sup_5 = load_image(join(self.images_dir, 'sup', name+'_sup_5.png'))
 
-        img = self.preprocess(img, self.scale, is_mask=False)
-        mask = self.preprocess(mask, self.scale, is_mask=True)
+        img = self.preprocess(img, self.scale)
+        #mask = self.preprocess(mask, self.scale, is_mask=True)
 
-        img_sup_0 = self.preprocess(img_sup_0, self.scale, is_mask=False)
-        img_sup_1 = self.preprocess(img_sup_1, self.scale, is_mask=False)
-        img_sup_2 = self.preprocess(img_sup_2, self.scale, is_mask=False)
-        img_sup_3 = self.preprocess(img_sup_3, self.scale, is_mask=False)
-        img_sup_4 = self.preprocess(img_sup_4, self.scale, is_mask=False)
-        img_sup_5 = self.preprocess(img_sup_5, self.scale, is_mask=False)
+        img_sup_0 = self.preprocess(img_sup_0, self.scale)
+        img_sup_1 = self.preprocess(img_sup_1, self.scale)
+        img_sup_2 = self.preprocess(img_sup_2, self.scale)
+        img_sup_3 = self.preprocess(img_sup_3, self.scale)
+        img_sup_4 = self.preprocess(img_sup_4, self.scale)
+        img_sup_5 = self.preprocess(img_sup_5, self.scale)
 
         img_combined = np.zeros((7, img.shape[1], img.shape[2]), dtype='uint8').astype(float)
         img_combined[0] = img

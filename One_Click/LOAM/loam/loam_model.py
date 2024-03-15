@@ -50,6 +50,8 @@ class LOAM(nn.Module):
         zm1 = self.fm1(zm)
         zm2 = self.fm2(zm1)
 
+        #print ("x6:{}, zc3:{}, zm2:{}".format(x6.shape, zc3.shape, zm2.shape))
+
         y1 = self.mf(x6, zc3, zm2)
 
         x = self.up1(y1, x4)

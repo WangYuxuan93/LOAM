@@ -1,0 +1,12 @@
+#data_dir=../dataset/train
+#gt_dir=../dataset/train
+#sa_dir=train1102
+#map_list=../train_map.csv
+data_dir=../dataset/valid
+gt_dir=../dataset/valid
+sa_dir=valid0
+batch=4
+#map_list=../valid_map.csv
+gpu=$1
+map_list=$2
+CUDA_VISIBLE_DEVICES=$gpu python loam_handler.py --data_dir ${data_dir} --data_groundtruth_dir ${gt_dir} --targeted_map_list ${map_list} --model_inference TRUE --test_batch_size $batch

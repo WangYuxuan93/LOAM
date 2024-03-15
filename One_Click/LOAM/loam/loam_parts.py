@@ -119,16 +119,25 @@ class mf_layer(nn.Module):
 
         x = x.reshape(b * self.groups, -1, h, w)
         x_0, x_1 = x.chunk(2, dim=1)
+        #print ("##mf| x:{}, x_0:{}, x_1:{}".format(x.shape, x_0.shape, x_1.shape))
 
         # channel attention
         #self.avg_pool1d = nn.AdaptiveAvgPool1d(b * self.groups)
-        self.avg_pool1d = nn.AdaptiveAvgPool1d(int(b * self.groups / 4))
+        # This does not fit for batch_size > 1, removing b
+        #self.avg_pool1d = nn.AdaptiveAvgPool1d(int(b * self.groups / 4))
+        self.avg_pool1d = nn.AdaptiveAvgPool1d(self.groups)
 
         zc = self.avg_pool1d(zc0)
+        # Added this to match with sa_layer, the last two dim show be 1
+        zc = zc.reshape(b * self.groups, -1).unsqueeze(-1).unsqueeze(-1)
+        #print ("##mf| zc after avg_pool:", zc.shape)
         zc = self.cweight * zc + self.cbias
+        #print ("##mf| zc0:{}, zc:{}".format(zc0.shape, zc.shape))
         zct = x_0 * self.sigmoid(zc)
 
         zm = self.avg_pool1d(zm0)
+        # Added this to match with sa_layer, the last two dim show be 1
+        zm = zm.reshape(b * self.groups, -1).unsqueeze(-1).unsqueeze(-1)
         zm = self.sweight * zm + self.sbias
         zmt = x_1 * self.sigmoid(zm)
 
@@ -174,10 +183,13 @@ class sa_layer(nn.Module):
 
         x = x.reshape(b * self.groups, -1, h, w)
         x_0, x_1 = x.chunk(2, dim=1)
+        #print ("@@@sa | x:{}, x_0:{}, x_1:{}".format(x.shape, x_0.shape, x_1.shape))
 
         # channel attention
         xn = self.avg_pool(x_0)
+        #print ("@@@sa | xn:{}".format(xn.shape))
         xn = self.cweight * xn + self.cbias
+        #print ("@@@sa | xn after cw:{}".format(xn.shape))
         xn = x_0 * self.sigmoid(xn)
 
         # spatial attention

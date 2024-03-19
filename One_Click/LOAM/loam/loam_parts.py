@@ -119,25 +119,33 @@ class mf_layer(nn.Module):
 
         x = x.reshape(b * self.groups, -1, h, w)
         x_0, x_1 = x.chunk(2, dim=1)
-        #print ("##mf| x:{}, x_0:{}, x_1:{}".format(x.shape, x_0.shape, x_1.shape))
+        print ("##mf| x:{}, x_0:{}, x_1:{}".format(x.shape, x_0.shape, x_1.shape))
 
         # channel attention
         #self.avg_pool1d = nn.AdaptiveAvgPool1d(b * self.groups)
         # This does not fit for batch_size > 1, removing b
         #self.avg_pool1d = nn.AdaptiveAvgPool1d(int(b * self.groups / 4))
-        self.avg_pool1d = nn.AdaptiveAvgPool1d(self.groups)
+        self.avg_pool1d = nn.AdaptiveAvgPool1d(int(self.groups/4))
 
+        # zc0: (b, 64) => zc: (b, 16)
         zc = self.avg_pool1d(zc0)
-        # Added this to match with sa_layer, the last two dim show be 1
-        zc = zc.reshape(b * self.groups, -1).unsqueeze(-1).unsqueeze(-1)
-        #print ("##mf| zc after avg_pool:", zc.shape)
+        # zc: (b, 1, 1, 16)
+        #zc = zc.unsqueeze(1).unsqueeze(1)
+        #zcs = [zc[i].repeat(self.groups, 1, 1, 1) for i in range(b)]
+        # zc: (b*groups, 1, 1, 16)
+        #zc = torch.cat(zcs, dim=0)
+        print ("##mf| zc after avg_pool:", zc.shape)
         zc = self.cweight * zc + self.cbias
-        #print ("##mf| zc0:{}, zc:{}".format(zc0.shape, zc.shape))
+        print ("##mf| zc0:{}, zc:{}".format(zc0.shape, zc.shape))
         zct = x_0 * self.sigmoid(zc)
 
+        # zm0: (b, 64) => zm: (b, 16)
         zm = self.avg_pool1d(zm0)
-        # Added this to match with sa_layer, the last two dim show be 1
-        zm = zm.reshape(b * self.groups, -1).unsqueeze(-1).unsqueeze(-1)
+        # zm: (b, 1, 1, 16)
+        zm = zm.unsqueeze(1).unsqueeze(1)
+        zms = [zm[i].repeat(self.groups, 1, 1, 1) for i in range(b)]
+        # zm: (b*groups, 1, 1, 16)
+        zm = torch.cat(zms, dim=0)
         zm = self.sweight * zm + self.sbias
         zmt = x_1 * self.sigmoid(zm)
 

@@ -108,7 +108,7 @@ dir_mask = Path('data/cma_small/masks(2)/')
 
 dir_img_testing = Path('data/cma_small/imgs/')
 dir_mask_testing = Path('data/cma_small/masks/')
-dir_img_testing = Path('data_demo/')
+dir_img_testing = Path('demo/')
 
 
 
@@ -860,7 +860,7 @@ def model_testing():
         ''' Setup predicting arguments '''
         dir_pred_testing = Path('predict/fold_'+str(k)+'/cma_small/predict/')
         dir_pred_testing1 = Path('predict/fold_'+str(k)+'/cma/predict/')
-        #dir_pred_testing = Path('predict/fold_0/cma_small/predict/')
+        #dir_pred_testing = Path('demo/predict/cma_small/predict/')
         #dir_pred_testing1 = Path('predict/fold_0/cma/predict/')
 
         if not os.path.exists(dir_pred_testing):
@@ -1145,8 +1145,10 @@ def batched_model_testing():
     for k in range(0, k_fold_testing):
 
         ''' Setup predicting arguments '''
-        dir_pred_testing = Path('predict/fold_'+str(k)+'/cma_small/predict/')
-        dir_pred_testing1 = Path('predict/fold_'+str(k)+'/cma/predict/')
+        #dir_pred_testing = Path('predict/fold_'+str(k)+'/cma_small/predict/')
+        #dir_pred_testing1 = Path('predict/fold_'+str(k)+'/cma/predict/')
+        dir_pred_testing = Path('demo/predict/cma_small/predict/')
+        dir_pred_testing1 = Path('demo/predict/cma/predict/')
         #dir_pred_testing = Path('predict/fold_0/cma_small/predict/')
         #dir_pred_testing1 = Path('predict/fold_0/cma/predict/')
 

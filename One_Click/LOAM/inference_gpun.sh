@@ -4,8 +4,7 @@
 #map_list=../train_map.csv
 data_dir=../dataset/valid
 gt_dir=../dataset/valid
-sa_dir=valid0
-batch=4
+batch=1
 #map_list=../valid_map.csv
 gpu=$1
 map_list=$2
